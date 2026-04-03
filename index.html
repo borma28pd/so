@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -33,8 +34,7 @@
   <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
  </head>
  <body class="h-full bg-slate-50">
-  <div id="app" class="h-full w-full flex flex-col bg-white">
-   <!-- Header -->
+  <div id="app" class="h-full w-full flex flex-col bg-white"><!-- Header -->
    <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg p-4">
     <div class="flex items-center justify-between">
      <div>
@@ -43,10 +43,8 @@
      </div><button id="btn-menu" class="p-2 hover:bg-blue-500 rounded-lg transition"> <i data-lucide="menu" style="width: 24px; height: 24px;"></i> </button>
     </div>
    </header><!-- Main Content -->
-   <main class="flex-1 overflow-auto flex flex-col">
-    <!-- Tab Navigation -->
-    <div class="flex gap-0 border-b border-slate-200 bg-slate-50 px-4">
-     <button id="tab-scanner" class="tab-btn active flex-1 py-3 font-semibold border-b-2 border-blue-600 text-blue-600 transition text-sm"> <i data-lucide="scan" class="inline mr-2" style="width: 18px; height: 18px;"></i>Scan </button> <button id="tab-database" class="tab-btn flex-1 py-3 font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition text-sm"> <i data-lucide="database" class="inline mr-2" style="width: 18px; height: 18px;"></i>Database </button>
+   <main class="flex-1 overflow-auto flex flex-col"><!-- Tab Navigation -->
+    <div class="flex gap-0 border-b border-slate-200 bg-slate-50 px-4"><button id="tab-scanner" class="tab-btn active flex-1 py-3 font-semibold border-b-2 border-blue-600 text-blue-600 transition text-sm"> <i data-lucide="scan" class="inline mr-2" style="width: 18px; height: 18px;"></i>Scan </button> <button id="tab-database" class="tab-btn flex-1 py-3 font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition text-sm"> <i data-lucide="database" class="inline mr-2" style="width: 18px; height: 18px;"></i>Database </button>
     </div><!-- Tab: Scanner -->
     <div id="scanner-tab" class="tab-content block flex-1 flex flex-col p-4">
      <div class="mb-4 flex-1 flex flex-col gap-4">
@@ -55,17 +53,17 @@
        <div class="scan-frame"></div>
       </div>
       <div id="mobile-input" class="flex-1 flex flex-col gap-3">
-       <div>
-        <label class="block text-xs font-semibold text-slate-700 mb-2">📍 Lokasi / Gondola</label>
-        <div class="flex gap-2"><input type="text" id="location-input" placeholder="Contoh: Gondola A01, Rak B2, dsb..." class="flex-1 px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-blue-600 text-sm"> <button id="btn-location-ok" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">OK</button>
+       <div><label class="block text-xs font-semibold text-slate-700 mb-2">📍 Lokasi / Gondola</label>
+        <div class="flex gap-2">
+         <input type="text" id="location-input" placeholder="Contoh: Gondola A01, Rak B2, dsb..." class="flex-1 px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-blue-600 text-sm"> <button id="btn-location-ok" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">OK</button>
         </div>
        </div>
-       <div>
-        <label class="block text-xs font-semibold text-slate-700 mb-2">📱 Scan Barcode</label> <input type="text" id="barcode-input" placeholder="Tap untuk scan..." class="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 text-sm" autofocus>
-        <p class="text-xs text-slate-500 mt-1">Kamera atau input manual</p>
+       <div class="flex gap-2"><button id="btn-use-camera" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="camera" style="width: 16px; height: 16px;"></i>Buka Kamera </button> <button id="btn-close-camera" class="px-3 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 text-sm font-semibold rounded-lg transition hidden flex items-center justify-center gap-2"> <i data-lucide="x" style="width: 16px; height: 16px;"></i>Tutup </button>
        </div>
-       <div class="flex gap-2">
-        <button id="btn-use-camera" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="camera" style="width: 16px; height: 16px;"></i>Buka Kamera </button> <button id="btn-close-camera" class="px-3 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 text-sm font-semibold rounded-lg transition hidden"> <i data-lucide="x" style="width: 16px; height: 16px;"></i> </button>
+       <div id="camera-controls" class="hidden flex gap-2"><button id="btn-shoot" class="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition flex items-center justify-center gap-2 text-lg"> <i data-lucide="aperture" style="width: 24px; height: 24px;"></i>SHOOT </button>
+       </div>
+       <div><label class="block text-xs font-semibold text-slate-700 mb-2">📱 Manual Input</label> <input type="text" id="barcode-input" placeholder="Atau ketik barcode di sini..." class="w-full px-3 py-2 border-2 border-slate-300 rounded-lg focus:outline-none focus:border-blue-600 text-sm" autofocus>
+        <p class="text-xs text-slate-500 mt-1">Tekan Enter untuk scan</p>
        </div>
       </div>
      </div>
@@ -93,14 +91,12 @@
       <div id="empty-state" class="text-center py-8">
        <p class="text-slate-600 text-sm">Scan barcode untuk memulai</p>
       </div>
-      <div class="flex gap-2 mt-4">
-       <button id="btn-copy-table" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="copy" style="width: 16px; height: 16px;"></i>Copy Tabel </button> <button id="btn-export-excel" class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="download" style="width: 16px; height: 16px;"></i>Export Excel </button> <button id="btn-reset-all" class="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>Reset </button>
+      <div class="flex gap-2 mt-4"><button id="btn-copy-table" class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="copy" style="width: 16px; height: 16px;"></i>Copy Tabel </button> <button id="btn-export-excel" class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="download" style="width: 16px; height: 16px;"></i>Export Excel </button> <button id="btn-reset-all" class="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"> <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>Reset </button>
       </div>
      </div>
     </div><!-- Tab: Database (Excel Worksheet) -->
     <div id="database-tab" class="tab-content hidden flex-1 flex flex-col p-4 gap-3">
-     <div class="flex gap-2">
-      <button id="btn-add-row" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2"> <i data-lucide="plus" style="width: 16px; height: 16px;"></i>Tambah Baris </button>
+     <div class="flex gap-2"><button id="btn-add-row" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2"> <i data-lucide="plus" style="width: 16px; height: 16px;"></i>Tambah Baris </button>
      </div>
      <div class="flex-1 overflow-auto border border-slate-300 rounded-lg bg-white">
       <table class="db-table">
@@ -215,6 +211,76 @@
             products[productId][fieldName] = newValue;
             saveToStorage();
             showNotification('✓ Tersimpan', 'success');
+          }
+        });
+
+        // Paste handler untuk paste langsung dari Excel/Spreadsheet
+        field.addEventListener('paste', (e) => {
+          e.preventDefault();
+          
+          const text = e.clipboardData.getData('text/plain');
+          console.log('Paste text:', text); // DEBUG
+          if (!text || text.trim().length === 0) {
+            showNotification('Paste data kosong', 'error');
+            return;
+          }
+
+          // Split by rows (newline)
+          const rows = text.trim().split('\n').filter(row => row.trim().length > 0);
+          console.log('Rows:', rows.length, rows); // DEBUG
+          
+          if (rows.length === 0) {
+            showNotification('Tidak ada data untuk di-paste', 'error');
+            return;
+          }
+
+          let pastedCount = 0;
+
+          // Process each row
+          rows.forEach((row, rowIndex) => {
+            // Split by tab OR comma (flexible)
+            let cells = row.split('\t').map(cell => cell.trim());
+            if (cells.length < 2) {
+              cells = row.split(',').map(cell => cell.trim());
+            }
+            
+            console.log(`Row ${rowIndex}:`, cells); // DEBUG
+
+            if (cells.length < 2) return; // Need at least 2 columns
+
+            // Map cells to product fields - PENTING: urutan harus benar
+            const newProduct = {
+              barcode: cells[0] || '',
+              kode: cells[1] || '',
+              nama: cells[2] || '',
+              harga: parseInt(cells[3]) || 0,
+              kategori: cells[4] || ''
+            };
+
+            if (!newProduct.barcode) return; // Skip if no barcode
+
+            console.log('Adding product:', newProduct); // DEBUG
+
+            // Check if product with same barcode exists
+            const existingIndex = products.findIndex(p => p.barcode === newProduct.barcode);
+            if (existingIndex >= 0) {
+              // Update existing
+              products[existingIndex] = newProduct;
+            } else {
+              // Add new
+              products.push(newProduct);
+            }
+            
+            pastedCount++;
+          });
+
+          saveToStorage();
+          renderProductsTable();
+          
+          if (pastedCount > 0) {
+            showNotification(`✓ ${pastedCount} produk berhasil di-paste!`, 'success');
+          } else {
+            showNotification('Format paste tidak sesuai', 'error');
           }
         });
 
@@ -410,7 +476,8 @@
     });
 
     // Copy table to clipboard
-    document.getElementById('btn-copy-table').addEventListener('click', () => {
+    document.getElementById('btn-copy-table').addEventListener('click', async (e) => {
+      e.preventDefault();
       if (scannedItems.length === 0) {
         showNotification('Belum ada item untuk dicopy', 'error');
         return;
@@ -424,21 +491,38 @@
         rowNum++;
       });
 
-      navigator.clipboard.writeText(tsvData).then(() => {
-        showNotification('✓ Tabel dicopy!', 'success');
-      }).catch(() => {
-        showNotification('Gagal copy tabel', 'error');
-      });
+      try {
+        // Try modern clipboard API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(tsvData);
+          showNotification('✓ Tabel disalin ke clipboard!', 'success');
+        } else {
+          // Fallback untuk browser lama
+          const textarea = document.createElement('textarea');
+          textarea.value = tsvData;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          showNotification('✓ Tabel disalin ke clipboard!', 'success');
+        }
+      } catch (err) {
+        console.error('Copy error:', err);
+        showNotification('❌ Gagal salin. Coba manual copy.', 'error');
+      }
     });
 
     // Export to Excel
-    document.getElementById('btn-export-excel').addEventListener('click', () => {
+    document.getElementById('btn-export-excel').addEventListener('click', (e) => {
+      e.preventDefault();
       if (scannedItems.length === 0) {
         showNotification('Belum ada item untuk export', 'error');
         return;
       }
 
-      // Create CSV data
+      // Create CSV data dengan proper encoding
       let csvContent = 'No,Lokasi,Kode,Barcode,Nama Produk,Harga,Kategori\n';
       let rowNum = 1;
       let currentLocation = '';
@@ -448,12 +532,24 @@
           currentLocation = item.location;
           return;
         }
-        csvContent += `${rowNum},"${currentLocation}","${item.kode}","${item.barcode}","${item.nama}",${item.harga},"${item.kategori}"\n`;
+        // Escape CSV values properly
+        const escapeCSV = (val) => {
+          if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return `"${val}"`;
+        };
+        
+        csvContent += `${rowNum},${escapeCSV(currentLocation)},${escapeCSV(item.kode)},${escapeCSV(item.barcode)},${escapeCSV(item.nama)},${item.harga},${escapeCSV(item.kategori)}\n`;
         rowNum++;
       });
 
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Add UTF-8 BOM for proper encoding in Excel
+      const BOM = '\uFEFF';
+      const csvWithBOM = BOM + csvContent;
+
+      // Create blob dan download
+      const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       
@@ -462,10 +558,14 @@
       link.style.visibility = 'hidden';
       
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
       
-      showNotification('✓ Excel berhasil diunduh!', 'success');
+      // Trigger download
+      setTimeout(() => {
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showNotification('✓ Excel berhasil diunduh!', 'success');
+      }, 100);
     });
 
     // Reset all items
@@ -508,33 +608,142 @@
       document.getElementById('database-tab').classList.remove('hidden');
     });
 
-    // Camera control
+    // Camera control with ZXing barcode detection
+    let codeReader = null;
+    let isScanning = false;
+    let lastScannedBarcode = '';
+    let lastScanTime = 0;
+
     document.getElementById('btn-use-camera').addEventListener('click', async (e) => {
       e.preventDefault();
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showNotification('❌ Kamera tidak didukung di browser ini', 'error');
+        return;
+      }
+
       try {
-        videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
+        // Request camera with minimal constraints first
+        const constraints = {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          },
+          audio: false
+        };
+
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = document.getElementById('scanner-video');
         video.srcObject = videoStream;
-        video.play();
+        
+        // Ensure video plays
+        video.onloadedmetadata = () => {
+          video.play().catch(err => {
+            console.error('Video play error:', err);
+            showNotification('❌ Gagal memutar video kamera', 'error');
+          });
+        };
 
         document.getElementById('mobile-input').classList.add('hidden');
         document.getElementById('camera-container').classList.remove('hidden');
         document.getElementById('btn-close-camera').classList.remove('hidden');
+        document.getElementById('camera-controls').classList.remove('hidden');
+        
+        showNotification('📷 Arahkan ke barcode, tekan SHOOT', 'success');
       } catch (err) {
-        showNotification('Tidak bisa akses kamera', 'error');
+        console.error('Camera error:', err);
+        
+        // Show specific error message
+        let errorMsg = '❌ Kamera tidak bisa diakses';
+        if (err.name === 'NotAllowedError') {
+          errorMsg = '❌ Izin kamera ditolak. Cek pengaturan browser.';
+        } else if (err.name === 'NotFoundError') {
+          errorMsg = '❌ Kamera tidak ditemukan di perangkat ini';
+        } else if (err.name === 'NotReadableError') {
+          errorMsg = '❌ Kamera sedang digunakan aplikasi lain';
+        }
+        
+        showNotification(errorMsg + ' Gunakan input manual.', 'error');
+      }
+    });
+
+    // SHOOT button - capture barcode dari frame
+    document.getElementById('btn-shoot').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const video = document.getElementById('scanner-video');
+      
+      if (!video || !video.srcObject) {
+        showNotification('❌ Video tidak siap', 'error');
+        return;
+      }
+
+      try {
+        // Create canvas dan capture video frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Decode barcode dari frame
+        if (typeof ZXing === 'undefined') {
+          showNotification('❌ Barcode reader tidak siap', 'error');
+          return;
+        }
+
+        const reader = new ZXing.BrowserMultiFormatReader();
+        const result = await reader.decodeFromCanvas(canvas);
+        
+        if (result) {
+          const barcode = result.getText();
+          console.log('📸 Barcode terbaca:', barcode);
+          
+          // Find product dan add ke scanned items
+          const product = products.find(p => p.barcode === barcode);
+          
+          if (product) {
+            const existingItem = scannedItems.find(item => item.barcode === barcode && !item.isLocationHeader);
+            if (existingItem) {
+              showNotification('✓ Sudah di-scan', 'success');
+            } else {
+              scannedItems.push({
+                barcode: product.barcode,
+                kode: product.kode,
+                nama: product.nama,
+                harga: product.harga,
+                kategori: product.kategori
+              });
+              showNotification('✓ ' + product.nama, 'success');
+              renderScannedItems();
+            }
+          } else {
+            showNotification('❌ Barcode tidak ada di database', 'error');
+          }
+        } else {
+          showNotification('❌ Barcode tidak terdeteksi', 'error');
+        }
+      } catch (err) {
+        console.error('Decode error:', err);
+        showNotification('❌ Gagal baca barcode', 'error');
       }
     });
 
     document.getElementById('btn-close-camera').addEventListener('click', (e) => {
       e.preventDefault();
+      isScanning = false;
+      if (codeReader) {
+        codeReader.reset();
+        codeReader = null;
+      }
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
       }
       document.getElementById('camera-container').classList.add('hidden');
       document.getElementById('mobile-input').classList.remove('hidden');
       document.getElementById('btn-close-camera').classList.add('hidden');
+      document.getElementById('camera-controls').classList.add('hidden');
       document.getElementById('barcode-input').focus();
     });
 
@@ -611,5 +820,5 @@
     renderScannedItems();
     lucide.createIcons();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e684f7445171be6',t:'MTc3NTIyMTc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e68842cb3e4514a',t:'MTc3NTIyMzk1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
