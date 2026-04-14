@@ -3,331 +3,494 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Barcode Scanner Kasir</title>
+  <title>Barcode Scanner Inventory</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <style>
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; margin: 0; }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    video { object-fit: cover; transform: scaleX(-1); }
+    .scan-line {
+      position: absolute; left: 8%; right: 8%; height: 2px;
+      background: linear-gradient(90deg, transparent, #00ff88, transparent);
+      animation: scanMove 2s ease-in-out infinite;
+      box-shadow: 0 0 12px #00ff88, 0 0 24px #00ff8855;
     }
-    .slide-in {
-      animation: slideIn 0.3s ease-out;
+    @keyframes scanMove { 0%,100% { top: 20%; } 50% { top: 75%; } }
+    .scan-corner { position: absolute; width: 20px; height: 20px; border-color: #00ff88; }
+    .scan-corner.tl { top: 8%; left: 8%; border-top: 3px solid; border-left: 3px solid; }
+    .scan-corner.tr { top: 8%; right: 8%; border-top: 3px solid; border-right: 3px solid; }
+    .scan-corner.bl { bottom: 8%; left: 8%; border-bottom: 3px solid; border-left: 3px solid; }
+    .scan-corner.br { bottom: 8%; right: 8%; border-bottom: 3px solid; border-right: 3px solid; }
+    .toast {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 999; padding: 12px 24px; border-radius: 12px;
+      font-weight: 600; animation: toastIn 0.3s ease, toastOut 0.3s ease 2.2s forwards;
     }
-    @keyframes pulse-ring {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .pulse-scan {
-      animation: pulse-ring 1.5s infinite;
-    }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(-20px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+    @keyframes toastOut { to { opacity:0; transform: translateX(-50%) translateY(-20px); } }
+    .row-enter { animation: rowSlide 0.3s ease; }
+    @keyframes rowSlide { from { opacity:0; transform: translateY(-10px); } to { opacity:1; transform: translateY(0); } }
+    #scanner-video { width: 100%; height: 100%; border-radius: 12px; }
+    .glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
+    @keyframes glowPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.2); } 50% { box-shadow: 0 0 20px 4px rgba(0,255,136,0.15); } }
   </style>
   <style>body { box-sizing: border-box; }</style>
-  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
  </head>
- <body class="h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-  <div class="w-full h-full flex flex-col overflow-auto app-wrapper">
-   <!-- Header -->
-   <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-4 shadow-lg sticky top-0 z-10">
-    <div class="flex items-center justify-between">
-     <div class="flex items-center gap-2">
-      <i data-lucide="scan" class="w-6 h-6"></i>
-      <h1 class="text-xl font-bold">Scanner Kasir</h1>
-     </div><button id="toggleMode" class="bg-white text-blue-600 px-3 py-1 rounded-full text-sm font-semibold hover:bg-blue-50 transition"> Mode: Scanner </button>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto" style="background:#0a0f1a;"><!-- Toast container -->
+   <div id="toast-container"></div><!-- Header -->
+   <header class="sticky top-0 z-40" style="background:linear-gradient(135deg,#0d1424 0%,#111b2e 100%);border-bottom:1px solid #1a2744;">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+     <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#00ff88,#00cc6a);"><i data-lucide="scan-line" style="width:20px;height:20px;color:#0a0f1a;"></i>
+      </div>
+      <div>
+       <h1 id="app-title" class="text-lg font-bold" style="color:#e8ecf4;">Barcode Scanner</h1>
+       <p class="text-xs" style="color:#4a6080;">Inventory Scanner System</p>
+      </div>
+     </div>
+     <div class="flex items-center gap-2"><span id="item-count-badge" class="font-mono-code text-xs px-3 py-1 rounded-full" style="background:#0f1e35;color:#00ff88;border:1px solid #1a3355;">0 items</span> <button id="btn-export" class="p-2 rounded-lg transition-colors" style="background:#0f1e35;color:#4a6080;border:1px solid #1a3355;" title="Export CSV"> <i data-lucide="download" style="width:18px;height:18px;"></i> </button>
+     </div>
     </div>
-   </header><!-- Main Content -->
-   <main class="flex-1 flex flex-col overflow-hidden">
-    <!-- Scanner View -->
-    <div id="scannerView" class="flex-1 flex flex-col overflow-hidden">
-     <!-- Camera Container -->
-     <div class="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
-      <video id="cameraFeed" class="w-full h-full object-cover" playsinline></video><!-- Scanner Frame -->
-      <div class="absolute inset-0 flex items-center justify-center">
-       <div class="relative w-80 h-48">
-        <!-- Border frame -->
-        <div class="absolute inset-0 border-4 border-green-500 rounded-lg"></div><!-- Corner decorations -->
-        <div class="absolute -top-2 -left-2 w-6 h-6 border-t-4 border-l-4 border-green-500 rounded-tl-lg"></div>
-        <div class="absolute -top-2 -right-2 w-6 h-6 border-t-4 border-r-4 border-green-500 rounded-tr-lg"></div>
-        <div class="absolute -bottom-2 -left-2 w-6 h-6 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
-        <div class="absolute -bottom-2 -right-2 w-6 h-6 border-b-4 border-r-4 border-green-500 rounded-br-lg"></div><!-- Scan line -->
-        <div class="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent pulse-scan"></div>
+   </header>
+   <main class="max-w-4xl mx-auto px-4 py-5 space-y-5"><!-- Scanner Section -->
+    <section id="scanner-section" class="rounded-2xl overflow-hidden" style="background:#0d1424;border:1px solid #1a2744;">
+     <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid #1a2744;">
+      <div class="flex items-center gap-2">
+       <div class="w-2 h-2 rounded-full glow-pulse" style="background:#00ff88;" id="cam-status-dot"></div><span class="text-sm font-semibold" style="color:#8899b0;">Camera Scanner</span>
+      </div>
+      <div class="flex gap-2"><button id="btn-manual" class="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style="background:#0f1e35;color:#8899b0;border:1px solid #1a3355;"> <i data-lucide="keyboard" style="width:12px;height:12px;display:inline;vertical-align:-2px;"></i> Manual </button> <button id="btn-toggle-cam" class="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style="background:#00ff8820;color:#00ff88;border:1px solid #00ff8840;"> <i data-lucide="camera" style="width:12px;height:12px;display:inline;vertical-align:-2px;"></i> Start </button>
+      </div>
+     </div><!-- Camera viewport -->
+     <div id="camera-viewport" class="relative w-full" style="height:220px;background:#080d18;display:none;">
+      <video id="scanner-video" autoplay playsinline muted></video>
+      <div class="scan-line"></div>
+      <div class="scan-corner tl"></div>
+      <div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div>
+      <div class="scan-corner br"></div>
+      <div class="absolute bottom-3 left-0 right-0 text-center text-xs" style="color:#00ff88aa;">
+       Arahkan kamera ke barcode...
+      </div>
+     </div><!-- Manual input -->
+     <div id="manual-input-area" class="p-4" style="display:none;">
+      <form id="manual-form" class="flex gap-2"><input id="manual-barcode" type="text" placeholder="Ketik atau paste barcode..." class="flex-1 px-4 py-2.5 rounded-lg text-sm font-mono-code outline-none" style="background:#0f1e35;color:#e8ecf4;border:1px solid #1a3355;"> <button type="submit" class="px-4 py-2.5 rounded-lg text-sm font-semibold" style="background:#00ff88;color:#0a0f1a;">Cari</button>
+      </form>
+     </div>
+    </section><!-- Product Database Section -->
+    <section class="rounded-2xl overflow-hidden" style="background:#0d1424;border:1px solid #1a2744;">
+     <details><summary class="p-4 cursor-pointer flex items-center gap-2 text-sm font-semibold select-none" style="color:#8899b0;"> <i data-lucide="database" style="width:14px;height:14px;"></i> Database Produk (edit di sini) </summary>
+      <div class="px-4 pb-4">
+       <p class="text-xs mb-3" style="color:#4a6080;">Tambah produk ke database lokal. Format: barcode, nama, harga.</p>
+       <form id="db-form" class="flex flex-wrap gap-2 mb-3"><input id="db-barcode" type="text" placeholder="Barcode" class="flex-1 min-w-[100px] px-3 py-2 rounded-lg text-xs font-mono-code outline-none" style="background:#0f1e35;color:#e8ecf4;border:1px solid #1a3355;"> <input id="db-name" type="text" placeholder="Nama Produk" class="flex-1 min-w-[120px] px-3 py-2 rounded-lg text-xs outline-none" style="background:#0f1e35;color:#e8ecf4;border:1px solid #1a3355;"> <input id="db-price" type="number" placeholder="Harga" class="w-24 px-3 py-2 rounded-lg text-xs font-mono-code outline-none" style="background:#0f1e35;color:#e8ecf4;border:1px solid #1a3355;"> <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold" style="background:#00ff88;color:#0a0f1a;">+ Tambah</button>
+       </form>
+       <div id="db-list" class="space-y-1 max-h-40 overflow-auto"></div>
+       <div class="mt-3 flex gap-2 flex-wrap"><button id="btn-import-db" class="text-xs px-3 py-1.5 rounded-lg" style="background:#0f1e35;color:#8899b0;border:1px solid #1a3355;"> <i data-lucide="upload" style="width:11px;height:11px;display:inline;vertical-align:-2px;"></i> Import CSV DB </button> <button id="btn-export-db" class="text-xs px-3 py-1.5 rounded-lg" style="background:#0f1e35;color:#8899b0;border:1px solid #1a3355;"> <i data-lucide="download" style="width:11px;height:11px;display:inline;vertical-align:-2px;"></i> Export CSV DB </button> <input type="file" id="import-db-file" accept=".csv" class="hidden">
        </div>
-      </div><!-- Overlay Info -->
-      <div class="absolute bottom-4 left-0 right-0 text-center text-white">
-       <p class="text-sm font-medium">Arahkan barcode ke kamera</p>
       </div>
-     </div><!-- Manual Input Section -->
-     <div class="bg-slate-800 border-t border-slate-700 p-4">
-      <div class="flex gap-2">
-       <input type="text" id="manualBarcode" placeholder="Atau ketik barcode di sini..." class="flex-1 px-3 py-2 bg-slate-700 text-white rounded border border-slate-600 focus:border-blue-500 focus:outline-none"> <button id="submitManual" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold transition flex items-center gap-2"> <i data-lucide="plus" class="w-4 h-4"></i> Tambah </button>
+     </details>
+    </section><!-- Scanned Items List -->
+    <section class="rounded-2xl overflow-hidden" style="background:#0d1424;border:1px solid #1a2744;">
+     <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid #1a2744;"><span class="text-sm font-semibold" style="color:#8899b0;"> <i data-lucide="list" style="width:14px;height:14px;display:inline;vertical-align:-2px;"></i> Hasil Scan </span> <button id="btn-clear" class="text-xs px-3 py-1.5 rounded-lg transition-colors" style="background:#ff445520;color:#ff4455;border:1px solid #ff445540;display:none;"> Hapus Semua </button>
+     </div><!-- Table header -->
+     <div class="grid grid-cols-12 gap-1 px-4 py-2 text-xs font-semibold font-mono-code" style="color:#4a6080;border-bottom:1px solid #1a2744;">
+      <div class="col-span-3">
+       BARCODE
       </div>
+      <div class="col-span-3">
+       NAMA
+      </div>
+      <div class="col-span-1 text-center">
+       QTY
+      </div>
+      <div class="col-span-2 text-right">
+       PRICE
+      </div>
+      <div class="col-span-2">
+       KET.
+      </div>
+      <div class="col-span-1"></div>
      </div>
-    </div><!-- Transaction List View -->
-    <div id="listView" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-900">
-     <!-- Stats Header -->
-     <div class="bg-slate-800 border-b border-slate-700 p-4 grid grid-cols-3 gap-3">
-      <div class="bg-slate-700 rounded-lg p-3">
-       <p class="text-xs text-slate-400">Total Item</p>
-       <p id="totalItems" class="text-2xl font-bold text-white">0</p>
+     <div id="scan-list" class="divide-y" style="border-color:#1a2744;"></div>
+     <div id="empty-state" class="p-8 text-center">
+      <div class="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-3" style="background:#0f1e35;"><i data-lucide="scan" style="width:28px;height:28px;color:#1a3355;"></i>
       </div>
-      <div class="bg-slate-700 rounded-lg p-3">
-       <p class="text-xs text-slate-400">Total Harga</p>
-       <p id="totalPrice" class="text-2xl font-bold text-green-400">Rp 0</p>
+      <p id="empty-msg" class="text-sm" style="color:#4a6080;">Scan barcode untuk mulai...</p>
+     </div><!-- Totals -->
+     <div id="totals-row" class="grid grid-cols-12 gap-1 px-4 py-3 text-xs font-bold font-mono-code" style="background:#0f1e35;border-top:1px solid #1a2744;display:none;">
+      <div class="col-span-3" style="color:#8899b0;">
+       TOTAL
       </div>
-      <div class="bg-slate-700 rounded-lg p-3">
-       <p class="text-xs text-slate-400">Action</p><button id="resetBtn" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded mt-1 transition"> Reset </button>
+      <div class="col-span-3"></div>
+      <div class="col-span-1 text-center" id="total-qty" style="color:#00ff88;">
+       0
       </div>
-     </div><!-- Transaction List -->
-     <div id="transactionList" class="flex-1 overflow-auto p-4 space-y-2">
-      <p class="text-slate-400 text-center mt-4">Belum ada scan</p>
+      <div class="col-span-2 text-right" id="total-price" style="color:#00ff88;">
+       0
+      </div>
+      <div class="col-span-3"></div>
      </div>
-    </div>
-   </main><!-- Database View (Admin) -->
-   <div id="databaseView" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-900">
-    <!-- Products List -->
-    <div class="flex-1 overflow-auto p-4">
-     <h2 class="text-lg font-bold text-white mb-4">Database Produk</h2>
-     <div id="productsList" class="space-y-2">
-      <!-- Products will be listed here -->
+    </section><!-- Export info -->
+    <section class="rounded-2xl p-4 flex items-start gap-3" style="background:#0f1e35;border:1px solid #1a2744;"><i data-lucide="info" style="width:16px;height:16px;color:#4a6080;flex-shrink:0;margin-top:2px;"></i>
+     <div class="text-xs" style="color:#4a6080;"><strong style="color:#8899b0;">Tips:</strong> Gunakan tombol Export CSV di atas untuk mengunduh data scan ke file .csv yang bisa dibuka di Google Sheets atau Excel. Import CSV DB untuk memuat database produk dari spreadsheet.
      </div>
-    </div>
-   </div>
+    </section>
+   </main>
   </div>
-  <script src="/_sdk/element_sdk.js"></script>
   <script>
-    // Demo Database - Produk
-    const demoProducts = [
-      { id: 1, barcode: '8801001001', ctg: 'Minuman', nama: 'Coca Cola', produk: 'Coca Cola 350ml', harga: 6500 },
-      { id: 2, barcode: '8801001002', ctg: 'Minuman', nama: 'Sprite', produk: 'Sprite 350ml', harga: 6500 },
-      { id: 3, barcode: '8801001003', ctg: 'Snack', nama: 'Chitato', produk: 'Chitato Rasa Original', harga: 8000 },
-      { id: 4, barcode: '8801001004', ctg: 'Snack', nama: 'Doritos', produk: 'Doritos Nacho Cheese', harga: 8500 },
-      { id: 5, barcode: '8801001005', ctg: 'Makanan', nama: 'Indomie', produk: 'Indomie Goreng', harga: 3500 },
-      { id: 6, barcode: '8801001006', ctg: 'Makanan', nama: 'Mie Sedaap', produk: 'Mie Sedaap Rasa Soto', harga: 3000 },
-      { id: 7, barcode: '8801001007', ctg: 'Minuman', nama: 'Fanta', produk: 'Fanta Orange 350ml', harga: 6500 },
-      { id: 8, barcode: '8801001008', ctg: 'Snack', nama: 'Pringles', produk: 'Pringles Original', harga: 12000 },
-      { id: 9, barcode: '8999909001909', ctg: 'Makanan', nama: 'Magnum', produk: 'Magnum Ice Cream', harga: 10000 },
-    ];
+  // ===== State =====
+  let productDB = JSON.parse(localStorage.getItem('productDB') || '[]');
+  let scannedItems = [];
+  let cameraStream = null;
+  let scanInterval = null;
+  let barcodeDetector = null;
+  let lastScannedCode = '';
+  let lastScanTime = 0;
 
-    // State
-    let transactions = [];
-    let cameraActive = false;
-    let currentMode = 'scanner'; // scanner, list, database
+  const defaultConfig = {
+    app_title: 'Barcode Scanner',
+    empty_message: 'Scan barcode untuk mulai...',
+    background_color: '#0a0f1a',
+    surface_color: '#0d1424',
+    text_color: '#e8ecf4',
+    accent_color: '#00ff88',
+    muted_color: '#4a6080',
+    font_family: 'DM Sans',
+    font_size: 14
+  };
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
-      initializeCamera();
-      setupEventListeners();
-      displayProducts();
+  // ===== Element SDK =====
+  window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => {
+      const t = (k) => config[k] || defaultConfig[k];
+      document.getElementById('app-title').textContent = t('app_title');
+      document.getElementById('empty-msg').textContent = t('empty_message');
+      document.getElementById('app').style.background = t('background_color');
+      const font = t('font_family');
+      document.body.style.fontFamily = `${font}, DM Sans, sans-serif`;
+    },
+    mapToCapabilities: (config) => {
+      const c = (key) => ({
+        get: () => config[key] || defaultConfig[key],
+        set: (v) => { config[key] = v; window.elementSdk.setConfig({ [key]: v }); }
+      });
+      return {
+        recolorables: [c('background_color'), c('surface_color'), c('text_color'), c('accent_color'), c('muted_color')],
+        borderables: [],
+        fontEditable: c('font_family'),
+        fontSizeable: c('font_size')
+      };
+    },
+    mapToEditPanelValues: (config) => new Map([
+      ['app_title', config.app_title || defaultConfig.app_title],
+      ['empty_message', config.empty_message || defaultConfig.empty_message]
+    ])
+  });
+
+  // ===== Data SDK =====
+  const dataHandler = {
+    onDataChanged(data) {
+      scannedItems = data;
+      renderScanList();
+    }
+  };
+  window.dataSdk.init(dataHandler);
+
+  // ===== Toast =====
+  function showToast(msg, type = 'success') {
+    const colors = { success: 'background:#00ff88;color:#0a0f1a;', error: 'background:#ff4455;color:#fff;', info: 'background:#1a3355;color:#e8ecf4;border:1px solid #2a4570;' };
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.style.cssText = colors[type] || colors.info;
+    t.textContent = msg;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(() => t.remove(), 2600);
+  }
+
+  // ===== Product DB =====
+  function saveDB() { localStorage.setItem('productDB', JSON.stringify(productDB)); }
+  function findProduct(barcode) { return productDB.find(p => p.barcode === barcode); }
+
+  function renderDB() {
+    const el = document.getElementById('db-list');
+    if (!productDB.length) { el.innerHTML = '<p class="text-xs py-2" style="color:#4a6080;">Belum ada produk.</p>'; return; }
+    el.innerHTML = productDB.map((p, i) => `
+      <div class="flex items-center justify-between py-1.5 px-2 rounded text-xs" style="background:#0a0f1a;">
+        <span class="font-mono-code" style="color:#00ff88;">${p.barcode}</span>
+        <span style="color:#e8ecf4;" class="flex-1 mx-3 truncate">${p.name}</span>
+        <span class="font-mono-code mr-3" style="color:#8899b0;">Rp${Number(p.price||0).toLocaleString('id-ID')}</span>
+        <button onclick="removeDBItem(${i})" class="p-1 rounded" style="color:#ff4455;"><i data-lucide="x" style="width:12px;height:12px;"></i></button>
+      </div>
+    `).join('');
+    lucide.createIcons();
+  }
+
+  function removeDBItem(i) { productDB.splice(i, 1); saveDB(); renderDB(); }
+
+  document.getElementById('db-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const b = document.getElementById('db-barcode').value.trim();
+    const n = document.getElementById('db-name').value.trim();
+    const p = document.getElementById('db-price').value;
+    if (!b || !n) { showToast('Barcode & nama wajib diisi', 'error'); return; }
+    if (findProduct(b)) { showToast('Barcode sudah ada di database', 'error'); return; }
+    productDB.push({ barcode: b, name: n, price: Number(p) || 0 });
+    saveDB(); renderDB();
+    e.target.reset();
+    showToast(`${n} ditambahkan ke database`);
+  });
+
+  // ===== Scan List Rendering =====
+  function renderScanList() {
+    const list = document.getElementById('scan-list');
+    const empty = document.getElementById('empty-state');
+    const totals = document.getElementById('totals-row');
+    const btnClear = document.getElementById('btn-clear');
+    const badge = document.getElementById('item-count-badge');
+
+    if (!scannedItems.length) {
+      list.innerHTML = '';
+      empty.style.display = '';
+      totals.style.display = 'none';
+      btnClear.style.display = 'none';
+      badge.textContent = '0 items';
+      return;
+    }
+
+    empty.style.display = 'none';
+    totals.style.display = '';
+    btnClear.style.display = '';
+
+    const existingEls = new Map([...list.children].map(el => [el.dataset.id, el]));
+    const fragment = document.createDocumentFragment();
+    let totalQty = 0, totalPrice = 0;
+
+    scannedItems.forEach(item => {
+      totalQty += Number(item.qty) || 0;
+      totalPrice += (Number(item.qty) || 0) * (Number(item.price) || 0);
+
+      if (existingEls.has(item.__backendId)) {
+        const el = existingEls.get(item.__backendId);
+        updateRow(el, item);
+        fragment.appendChild(el);
+        existingEls.delete(item.__backendId);
+      } else {
+        fragment.appendChild(createRow(item));
+      }
     });
 
-    // Setup Event Listeners
-    function setupEventListeners() {
-      document.getElementById('toggleMode').addEventListener('click', toggleMode);
-      document.getElementById('submitManual').addEventListener('click', submitManualBarcode);
-      document.getElementById('manualBarcode').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') submitManualBarcode();
-      });
-      document.getElementById('resetBtn').addEventListener('click', resetTransactions);
-    }
+    existingEls.forEach(el => el.remove());
+    list.innerHTML = '';
+    list.appendChild(fragment);
 
-    // Toggle Mode
-    function toggleMode() {
-      currentMode = currentMode === 'scanner' ? 'list' : 'scanner';
-      
-      document.getElementById('scannerView').classList.toggle('hidden');
-      document.getElementById('listView').classList.toggle('hidden');
-      document.getElementById('toggleMode').textContent = currentMode === 'scanner' ? 'Mode: Scanner' : 'Mode: List';
-      
-      if (currentMode === 'scanner') {
-        cameraActive = true;
-        document.getElementById('cameraFeed').play();
+    document.getElementById('total-qty').textContent = totalQty;
+    document.getElementById('total-price').textContent = 'Rp' + totalPrice.toLocaleString('id-ID');
+    badge.textContent = scannedItems.length + ' items';
+    lucide.createIcons();
+  }
+
+  function createRow(item) {
+    const div = document.createElement('div');
+    div.dataset.id = item.__backendId;
+    div.className = 'grid grid-cols-12 gap-1 px-4 py-2.5 items-center text-xs row-enter';
+    div.style.borderBottom = '1px solid #1a2744';
+    updateRowInner(div, item);
+    return div;
+  }
+
+  function updateRow(el, item) { updateRowInner(el, item); }
+
+  function updateRowInner(el, item) {
+    el.innerHTML = `
+      <div class="col-span-3 font-mono-code truncate" style="color:#00ff88;font-size:11px;">${item.barcode || '-'}</div>
+      <div class="col-span-3 truncate" style="color:#e8ecf4;">${item.product_name || '-'}</div>
+      <div class="col-span-1 text-center">
+        <div class="inline-flex items-center gap-1">
+          <button onclick="changeQty('${item.__backendId}', -1)" class="w-5 h-5 rounded flex items-center justify-center" style="background:#0f1e35;color:#8899b0;">-</button>
+          <span class="font-mono-code w-6 text-center" style="color:#e8ecf4;">${item.qty || 1}</span>
+          <button onclick="changeQty('${item.__backendId}', 1)" class="w-5 h-5 rounded flex items-center justify-center" style="background:#0f1e35;color:#8899b0;">+</button>
+        </div>
+      </div>
+      <div class="col-span-2 text-right font-mono-code" style="color:#8899b0;">Rp${Number(item.price||0).toLocaleString('id-ID')}</div>
+      <div class="col-span-2 truncate" style="color:#4a6080;">${item.keterangan || '-'}</div>
+      <div class="col-span-1 text-right">
+        <button onclick="deleteItem('${item.__backendId}')" class="p-1 rounded" style="color:#ff445580;"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
+      </div>
+    `;
+  }
+
+  // ===== Actions =====
+  async function changeQty(id, delta) {
+    const item = scannedItems.find(i => i.__backendId === id);
+    if (!item) return;
+    const newQty = Math.max(1, (Number(item.qty) || 1) + delta);
+    const result = await window.dataSdk.update({ ...item, qty: newQty });
+    if (!result.isOk) showToast('Gagal update qty', 'error');
+  }
+
+  async function deleteItem(id) {
+    const item = scannedItems.find(i => i.__backendId === id);
+    if (!item) return;
+    const result = await window.dataSdk.delete(item);
+    if (!result.isOk) showToast('Gagal menghapus', 'error');
+  }
+
+  document.getElementById('btn-clear').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-clear');
+    if (btn.dataset.confirm !== 'true') {
+      btn.textContent = 'Yakin hapus semua?';
+      btn.dataset.confirm = 'true';
+      setTimeout(() => { btn.textContent = 'Hapus Semua'; btn.dataset.confirm = ''; }, 3000);
+      return;
+    }
+    btn.textContent = 'Menghapus...';
+    for (const item of [...scannedItems]) { await window.dataSdk.delete(item); }
+    btn.textContent = 'Hapus Semua';
+    btn.dataset.confirm = '';
+  });
+
+  // ===== Barcode Scanning =====
+  async function processBarcode(code) {
+    if (!code) return;
+    const now = Date.now();
+    if (code === lastScannedCode && now - lastScanTime < 3000) return;
+    lastScannedCode = code;
+    lastScanTime = now;
+
+    if (scannedItems.length >= 999) { showToast('Batas maksimum 999 item tercapai!', 'error'); return; }
+
+    const product = findProduct(code);
+    const record = {
+      barcode: code,
+      product_name: product ? product.name : 'Produk tidak dikenal',
+      qty: 1,
+      price: product ? product.price : 0,
+      keterangan: product ? '' : 'Tidak ada di database',
+      scanned_at: new Date().toISOString()
+    };
+
+    const result = await window.dataSdk.create(record);
+    if (result.isOk) {
+      showToast(`✓ ${record.product_name}`, 'success');
+    } else {
+      showToast('Gagal menyimpan scan', 'error');
+    }
+  }
+
+  // ===== Camera =====
+  const btnCam = document.getElementById('btn-toggle-cam');
+  const viewport = document.getElementById('camera-viewport');
+  const video = document.getElementById('scanner-video');
+  const statusDot = document.getElementById('cam-status-dot');
+
+  btnCam.addEventListener('click', async () => {
+    if (cameraStream) { stopCamera(); return; }
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } });
+      video.srcObject = cameraStream;
+      viewport.style.display = '';
+      btnCam.innerHTML = '<i data-lucide="camera-off" style="width:12px;height:12px;display:inline;vertical-align:-2px;"></i> Stop';
+      statusDot.style.background = '#00ff88';
+      lucide.createIcons();
+
+      if ('BarcodeDetector' in window) {
+        barcodeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','codabar'] });
+        scanInterval = setInterval(async () => {
+          if (video.readyState >= 2) {
+            try {
+              const barcodes = await barcodeDetector.detect(video);
+              if (barcodes.length) processBarcode(barcodes[0].rawValue);
+            } catch(e) {}
+          }
+        }, 500);
       } else {
-        cameraActive = false;
-        document.getElementById('cameraFeed').pause();
+        showToast('BarcodeDetector tidak tersedia di browser ini. Gunakan input manual.', 'info');
       }
+    } catch (err) {
+      showToast('Tidak bisa mengakses kamera', 'error');
     }
+  });
 
-    // Initialize Camera
-    async function initializeCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
-        
-        const video = document.getElementById('cameraFeed');
-        video.srcObject = stream;
-        cameraActive = true;
-        
-        // Start barcode detection
-        detectBarcodes();
-      } catch (err) {
-        console.error('Kamera tidak tersedia:', err);
-        showNotification('Kamera tidak tersedia. Gunakan input manual.', 'error');
-      }
-    }
+  function stopCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+    viewport.style.display = 'none';
+    btnCam.innerHTML = '<i data-lucide="camera" style="width:12px;height:12px;display:inline;vertical-align:-2px;"></i> Start';
+    statusDot.style.background = '#1a3355';
+    lucide.createIcons();
+  }
 
-    // Detect Barcodes (Demo - menggunakan input manual)
-    async function detectBarcodes() {
-      if (!cameraActive) return;
-      
-      try {
-        const canvas = document.createElement('canvas');
-        const video = document.getElementById('cameraFeed');
-        const ctx = canvas.getContext('2d');
-        
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-        
-        // Note: Untuk production, gunakan library seperti quagga.js atau ml-barcode-detector
-        // Di sini menggunakan demo mode
-        
-        requestAnimationFrame(detectBarcodes);
-      } catch (err) {
-        console.error('Error detecting barcode:', err);
-      }
-    }
+  // ===== Manual Input =====
+  const manualArea = document.getElementById('manual-input-area');
+  document.getElementById('btn-manual').addEventListener('click', () => {
+    const vis = manualArea.style.display !== 'none';
+    manualArea.style.display = vis ? 'none' : '';
+    if (!vis) document.getElementById('manual-barcode').focus();
+  });
+  document.getElementById('manual-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('manual-barcode').value.trim();
+    if (val) { processBarcode(val); document.getElementById('manual-barcode').value = ''; }
+  });
 
-    // Submit Manual Barcode
-    function submitManualBarcode() {
-      const input = document.getElementById('manualBarcode');
-      const barcode = input.value.trim();
-      
-      if (!barcode) {
-        showNotification('Masukkan barcode terlebih dahulu', 'error');
-        return;
-      }
-      
-      const product = demoProducts.find(p => p.barcode === barcode);
-      
-      if (!product) {
-        showNotification(`Barcode "${barcode}" tidak ditemukan`, 'error');
-        input.value = '';
-        input.focus();
-        return;
-      }
-      
-      addTransaction(product);
-      input.value = '';
-      input.focus();
-    }
+  // ===== Export Scanned Items =====
+  document.getElementById('btn-export').addEventListener('click', () => {
+    if (!scannedItems.length) { showToast('Tidak ada data untuk diekspor', 'info'); return; }
+    let csv = 'Barcode Barang,Kode/Nama Barang,QTY,Price,Keterangan\n';
+    scannedItems.forEach(i => {
+      csv += `"${i.barcode}","${i.product_name}",${i.qty},${i.price},"${i.keterangan||''}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `scan_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    showToast('CSV berhasil diunduh!');
+  });
 
-    // Add Transaction
-    function addTransaction(product) {
-      const transaction = {
-        id: Date.now(),
-        ...product,
-        timestamp: new Date().toLocaleTimeString('id-ID')
-      };
-      
-      transactions.push(transaction);
-      renderTransactions();
-      showNotification(`${product.nama} ditambahkan ✓`, 'success');
-    }
+  // ===== Import/Export DB =====
+  document.getElementById('btn-import-db').addEventListener('click', () => document.getElementById('import-db-file').click());
+  document.getElementById('import-db-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const lines = ev.target.result.split('\n').filter(l => l.trim());
+      let imported = 0;
+      lines.slice(1).forEach(line => {
+        const cols = line.split(',').map(c => c.replace(/"/g, '').trim());
+        if (cols[0] && cols[1] && !findProduct(cols[0])) {
+          productDB.push({ barcode: cols[0], name: cols[1], price: Number(cols[2]) || 0 });
+          imported++;
+        }
+      });
+      saveDB(); renderDB();
+      showToast(`${imported} produk diimport`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+  document.getElementById('btn-export-db').addEventListener('click', () => {
+    if (!productDB.length) { showToast('Database kosong', 'info'); return; }
+    let csv = 'Barcode,Nama,Harga\n';
+    productDB.forEach(p => { csv += `"${p.barcode}","${p.name}",${p.price}\n`; });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'product_database.csv';
+    a.click();
+    showToast('Database CSV diunduh!');
+  });
 
-    // Render Transactions
-    function renderTransactions() {
-      const list = document.getElementById('transactionList');
-      const totalItems = document.getElementById('totalItems');
-      const totalPrice = document.getElementById('totalPrice');
-      
-      if (transactions.length === 0) {
-        list.innerHTML = '<p class="text-slate-400 text-center mt-4">Belum ada scan</p>';
-        totalItems.textContent = '0';
-        totalPrice.textContent = 'Rp 0';
-        return;
-      }
-      
-      list.innerHTML = transactions.map((t, idx) => `
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 slide-in flex items-start justify-between">
-          <div class="flex-1">
-            <div class="flex items-start gap-2">
-              <span class="text-slate-500 text-sm font-mono">${idx + 1}.</span>
-              <div class="flex-1">
-                <p class="text-white font-semibold">${t.nama}</p>
-                <p class="text-xs text-slate-400">${t.produk}</p>
-                <p class="text-xs text-slate-500 mt-1">
-                  <span class="bg-slate-700 px-2 py-0.5 rounded">Barcode: ${t.barcode}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="text-right ml-2">
-            <p class="text-green-400 font-bold">Rp ${t.harga.toLocaleString('id-ID')}</p>
-            <button 
-              onclick="removeTransaction(${t.id})"
-              class="text-xs text-red-400 hover:text-red-300 mt-1"
-            >
-              Hapus
-            </button>
-          </div>
-        </div>
-      `).join('');
-      
-      // Update totals
-      const total = transactions.reduce((sum, t) => sum + t.harga, 0);
-      totalItems.textContent = transactions.length;
-      totalPrice.textContent = `Rp ${total.toLocaleString('id-ID')}`;
-    }
-
-    // Remove Transaction
-    function removeTransaction(id) {
-      transactions = transactions.filter(t => t.id !== id);
-      renderTransactions();
-    }
-
-    // Reset Transactions
-    function resetTransactions() {
-      if (transactions.length === 0) return;
-      transactions = [];
-      renderTransactions();
-      showNotification('Transaksi direset', 'success');
-    }
-
-    // Display Products (Database View)
-    function displayProducts() {
-      const list = document.getElementById('productsList');
-      list.innerHTML = demoProducts.map(p => `
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-3">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <p class="text-white font-semibold">${p.nama}</p>
-              <p class="text-xs text-slate-400">${p.produk}</p>
-              <p class="text-xs text-slate-500 mt-1">
-                <span class="bg-slate-700 px-2 py-0.5 rounded">ID: ${p.id}</span>
-                <span class="bg-slate-700 px-2 py-0.5 rounded ml-1">Barcode: ${p.barcode}</span>
-              </p>
-              <p class="text-xs text-slate-500 mt-1">
-                <span class="bg-blue-900 text-blue-200 px-2 py-0.5 rounded">${p.ctg}</span>
-              </p>
-            </div>
-            <div class="text-right">
-              <p class="text-green-400 font-bold text-lg">Rp ${p.harga.toLocaleString('id-ID')}</p>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Notification
-    function showNotification(message, type = 'info') {
-      const notification = document.createElement('div');
-      notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold z-50 slide-in ${
-        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-      }`;
-      notification.textContent = message;
-      document.body.appendChild(notification);
-      
-      setTimeout(() => notification.remove(), 3000);
-    }
-  </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e78661b72f94ab7',t:'MTc3NTM5MDQ5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  // ===== Init =====
+  renderDB();
+  lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ec2f34a72d1f7e6',t:'MTc3NjE3MjIyMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
